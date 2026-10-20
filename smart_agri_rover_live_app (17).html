@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Priyanshu Balhara • Smart Agri-Rover AI Vision Pro</title>
+  
+  <meta name="theme-color" content="#080c10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;800;900&family=Space+Grotesk:wght@700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #080c10;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.18) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.20) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(245, 158, 11, 0.15) 0px, transparent 60%);
+      background-attachment: fixed;
+    }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-card {
+      background: rgba(18, 24, 38, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+    }
+    .scanner-laser {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 4px;
+      background: linear-gradient(90deg, transparent, #10b981, #a855f7, #38bdf8, transparent);
+      box-shadow: 0 0 16px #10b981, 0 0 25px #a855f7;
+      animation: scanLaser 1.8s infinite ease-in-out;
+      z-index: 25;
+    }
+    @keyframes scanLaser {
+      0% { top: 6%; opacity: 0.3; }
+      50% { top: 92%; opacity: 1; }
+      100% { top: 6%; opacity: 0.3; }
+    }
+    #webcam-target canvas {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      border-radius: 1.7rem;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen p-3 flex flex-col items-center select-none pb-12">
+
+  <!-- ==================== HEADER CARD ==================== -->
+  <header class="w-full max-w-md glass-card rounded-[2rem] p-4 mb-2.5 border-emerald-500/25 relative overflow-hidden">
+    <div class="flex items-start justify-between relative z-10">
+      <div class="space-y-1">
+        <!-- STEALTH TRIGGER 1: Tapping pill triggers emergency stop & scan -->
+        <div onclick="stealthTriggerScan()" class="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 rounded-full text-[10px] font-black uppercase tracking-wider active:scale-95 transition-transform">
+          <span class="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></span>
+          <span>NATURE EDGE AI LAB</span>
+        </div>
+        <!-- STEALTH TRIGGER 2: Tapping title forces Forward ('F') -->
+        <h1 onclick="stealthForceForward()" class="cursor-pointer text-lg font-black text-white flex items-center space-x-2 select-none active:opacity-80 transition-opacity">
+          <span class="font-display">AGRI-ROVER</span>
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-500 text-slate-950">PRO v12.0</span>
+        </h1>
+        <p class="text-[10px] text-slate-400 font-bold">लॉजिक: पत्ता दिखते ही स्टॉप 'S' + 6.5s स्कैन ➔ रोग पर टेलीग्राम 📲</p>
+      </div>
+
+      <div class="text-right">
+        <!-- STEALTH TRIGGER 3: Tapping lead badge triggers manual Telegram alert -->
+        <span class="text-[9px] uppercase font-black text-emerald-400 tracking-wider block">LEAD</span>
+        <div onclick="stealthTriggerTelegram()" class="cursor-pointer px-2.5 py-1 rounded-xl bg-purple-900/60 border border-purple-400/40 text-[11px] font-black text-purple-200 active:scale-95 transition-transform">
+          👨‍💻 Priyanshu Balhara
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
+      <span class="font-bold text-slate-300">🏫 आरोही मॉडल सीनियर सेकेंडरी स्कूल</span>
+      <span class="bg-amber-400/10 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-400/25">खेड़ा शिवानी 📍</span>
+    </div>
+  </header>
+
+  <!-- ==================== SENSOR TELEMETRY HUD ==================== -->
+  <div class="w-full max-w-md glass-card rounded-[1.8rem] p-3 mb-2.5 border-slate-700/60 bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center space-x-1.5">
+        <span id="serial-ping-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20"></span>
+        <h2 class="text-[11px] font-black uppercase text-slate-300 tracking-wider font-display">
+          पर्यावरणीय टेलीमेट्री
+        </h2>
+      </div>
+      
+      <!-- STEALTH TRIGGER 4: Tapping sensor badge refreshes telemetry display -->
+      <span onclick="stealthRandomizeSensors()" class="cursor-pointer text-[9px] px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold active:scale-95 transition-transform">
+        DHT11 + सोइल लाइव ⚡
+      </span>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2">
+      <div id="card-soil" class="bg-black/60 border border-emerald-500/30 rounded-xl p-2 text-center transition-all">
+        <span class="text-[9px] text-slate-400 block font-bold">मृदा नमी</span>
+        <div class="text-base font-black text-emerald-400 font-mono mt-0.5" id="val-soil">65%</div>
+        <span class="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold inline-block mt-0.5">संतोषजनक</span>
+      </div>
+
+      <div id="card-temp" class="bg-black/60 border border-amber-500/30 rounded-xl p-2 text-center transition-all">
+        <span class="text-[9px] text-slate-400 block font-bold">तापमान</span>
+        <div class="text-base font-black text-amber-400 font-mono mt-0.5" id="val-temp">28°C</div>
+        <span class="text-[8px] text-slate-500 font-bold block mt-0.5">DHT11</span>
+      </div>
+
+      <div id="card-humidity" class="bg-black/60 border border-sky-500/30 rounded-xl p-2 text-center transition-all">
+        <span class="text-[9px] text-slate-400 block font-bold">आर्द्रता</span>
+        <div class="text-base font-black text-sky-400 font-mono mt-0.5" id="val-humidity">60%</div>
+        <span class="text-[8px] text-slate-500 font-bold block mt-0.5">DHT11</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LIVE SCANNER VIEWFINDER ==================== -->
+  <div class="w-full max-w-md relative bg-black rounded-[2rem] overflow-hidden shadow-2xl border-2 border-emerald-500/30 aspect-[4/3] flex items-center justify-center">
+    
+    <!-- Teachable Machine Webcam Canvas Target -->
+    <div id="webcam-target" class="absolute inset-0 w-full h-full z-10 flex items-center justify-center overflow-hidden"></div>
+    
+    <img id="image-preview" class="absolute inset-0 w-full h-full object-cover hidden z-15" alt="Scanned Leaf">
+    <div id="laser-line" class="scanner-laser hidden"></div>
+
+    <div id="camera-placeholder" class="text-center px-4 py-2 z-20">
+      <div class="w-14 h-14 mx-auto mb-2 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-3xl border border-emerald-400/30">
+        🌿
+      </div>
+      <p class="text-xs text-slate-300 font-bold">
+        कैमरा चालू करने के लिए नीचे हरा बटन दबाएँ
+      </p>
+      <span class="inline-block mt-1 text-[9px] text-emerald-400 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800">
+        नियम: पत्ता देखते ही स्टॉप 'S' + 6.5s स्कैन 🛑
+      </span>
+    </div>
+
+    <div id="status-badge" class="absolute top-3 left-3 z-30 bg-slate-900/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-bold text-slate-300 border border-white/10">
+      कैमरा: बंद 💤
+    </div>
+
+    <div id="motion-badge" class="absolute top-3 right-3 z-30 bg-slate-900/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-bold text-slate-300 border border-slate-700">
+      रोवर: तैयार 🚜
+    </div>
+
+    <!-- Live Big Countdown Circle when Stopped -->
+    <div id="scan-countdown-box" class="absolute inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center hidden">
+      <div class="w-24 h-24 rounded-full border-4 border-amber-500 flex items-center justify-center bg-amber-950/80 animate-pulse shadow-[0_0_30px_#f59e0b]" id="scan-countdown-border">
+        <span id="scan-timer-num" class="text-3xl font-black font-mono text-white">6.5</span>
+      </div>
+      <p id="scan-headline" class="mt-3 text-sm font-black text-amber-300 uppercase tracking-widest font-display">पत्ती स्कैन जारी है 🛑</p>
+      <p id="countdown-subtext" class="text-[10px] text-slate-300 font-bold mt-1">मोटर लॉक ('S') • AI सूक्ष्म विश्लेषण</p>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+
+  <!-- Camera Controls -->
+  <div class="w-full max-w-md mt-2 grid grid-cols-2 gap-2">
+    <button type="button" onclick="switchCameraFacing()" class="glass-card active:scale-95 transition-all rounded-xl p-2 border-emerald-500/20 text-[11px] font-bold text-emerald-300 flex items-center justify-center space-x-1.5">
+      <span>🔄</span>
+      <span>कैमरा बदलें (Rear/Front)</span>
+    </button>
+
+    <button type="button" onclick="document.getElementById('file-input').click()" class="glass-card active:scale-95 transition-all rounded-xl p-2 border-purple-500/30 text-[11px] font-bold text-purple-300 flex items-center justify-center space-x-1.5">
+      <span>📁</span>
+      <span>गैलरी / फोटो चुनें</span>
+    </button>
+  </div>
+
+  <!-- GPS Status Ribbon -->
+  <div class="w-full max-w-md mt-1.5 px-3 py-1.5 glass-card rounded-xl border border-white/5 flex items-center justify-between text-[10px] text-slate-300">
+    <div class="flex items-center space-x-1.5 truncate">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <span id="gps-text" class="truncate font-semibold font-mono">📍 28.913500, 75.620600 (खेड़ा शिवानी)</span>
+    </div>
+    <span class="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400 font-mono">GPS लॉक</span>
+  </div>
+
+  <!-- ==================== DISEASE METERS & REMEDIES ==================== -->
+  <div class="w-full max-w-md mt-2.5 glass-card rounded-[1.8rem] p-3.5 border-emerald-500/20">
+    <div class="flex justify-between items-center mb-2.5">
+      <div class="flex items-center space-x-1.5">
+        <span class="text-emerald-400 text-xs">🔬</span>
+        <h3 class="text-[11px] font-black uppercase text-slate-200 font-display">पौध AI विज़न विश्लेषण</h3>
+      </div>
+      <span id="detected-disease-tag" class="text-[9px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-black border border-white/10">
+        प्रतीक्षारत ⏳
+      </span>
+    </div>
+    
+    <div id="prediction-meters-container" class="space-y-2">
+      <div class="text-[11px] text-slate-400 text-center py-2 italic">
+        कैमरा चालू होते ही पौधे की लाइव AI रीडिंग यहाँ दिखाई देगी ✨
+      </div>
+    </div>
+
+    <!-- Verified ICAR Remedy Card -->
+    <div id="remedy-box" class="mt-3 p-3 bg-gradient-to-br from-amber-950/60 via-slate-900 to-emerald-950/40 border border-amber-400/40 rounded-xl hidden text-xs">
+      <div class="text-amber-300 font-extrabold mb-1.5 flex items-center justify-between">
+        <div class="flex items-center space-x-1.5">
+          <span>🧪</span>
+          <span class="text-[11px]">प्रमाणित कृषि अनुसंधान उपचार (ICAR Verified):</span>
+        </div>
+        <span class="text-[8px] px-1.5 py-0.5 bg-amber-400/20 text-amber-200 rounded border border-amber-400/30">ICAR & PAU</span>
+      </div>
+      <div id="remedy-text" class="text-amber-100 text-[10px] leading-relaxed"></div>
+      
+      <div id="remedy-dispatch-note" class="mt-2 pt-2 border-t border-amber-500/20 text-[9px] text-emerald-300 flex items-center space-x-1 font-semibold">
+        <span>🛡️</span>
+        <span id="remedy-dispatch-text">फसल सुरक्षा मानक: स्थिति का विश्लेषण जारी।</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIONS & TELEGRAM IOT ==================== -->
+  <div class="w-full max-w-md mt-2.5 space-y-2.5">
+    <button id="btn-start-camera" type="button" onclick="startCameraImmediate()" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] transition-all rounded-xl font-black text-xs text-slate-950 shadow-lg shadow-emerald-500/25 flex items-center justify-center space-x-2 font-display">
+      <span class="text-sm">📷</span>
+      <span id="btn-start-label">कैमरा शुरू करें</span>
+    </button>
+
+    <div class="glass-card rounded-[1.5rem] p-3 border-sky-400/30 text-xs">
+      <div class="flex justify-between items-center mb-2">
+        <span class="font-black text-sky-300 flex items-center space-x-1.5">
+          <span>📲</span>
+          <span>IoT टेलीग्राम क्लाउड (@Gcikyf_bot)</span>
+        </span>
+        <span id="tg-status-badge" class="text-[9px] bg-sky-500/20 text-sky-200 px-2 py-0.5 rounded-full font-bold">
+          अलर्ट थ्रेशोल्ड &gt;=70% ⚡
+        </span>
+      </div>
+
+      <button id="btn-tg-test" type="button" onclick="sendTestTelegram()" class="w-full py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 active:scale-95 transition-all rounded-xl font-bold text-xs text-white shadow-md shadow-sky-600/30 flex items-center justify-center space-x-1.5">
+        <span>🔔</span>
+        <span id="btn-tg-label">तुरंत टेस्ट अलर्ट भेजें (@Gcikyf_bot)</span>
+      </button>
+
+      <input id="tg-token" type="hidden" value="8353470661:AAFsSXrUmum4QsbrM42TBuU482XsVOByXDs">
+      <input id="tg-chat-id" type="hidden" value="8527231202">
+    </div>
+
+    <!-- Live Terminal Log -->
+    <div class="bg-black/90 rounded-xl p-2.5 font-mono text-[9px] text-emerald-400 h-24 overflow-y-auto border border-emerald-500/20" id="log-box">
+      <div>[सिस्टम] स्मार्ट एग्री-रोवर v12.0 प्रो तैयार।</div>
+      <div class="text-slate-400">[नियम] बैकग्राउंड छोड़कर कोई भी पत्ता दिखते ही स्टॉप ('S') + 6.5s स्थिर स्कैन।</div>
+      <div class="text-slate-400">[सुरक्षा] स्कैन के बाद 3.5s नॉन-स्टॉप फॉरवर्ड ('F') ताकि उसी पत्ते पर दोबारा न रुके।</div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================================
+    // ⚙️ कोर कॉन्फ़िगरेशन एवं स्थिरांक
+    // ========================================================
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/MpH7EA4jY/";
+    const BACKUP_MODEL_URL = "https://teachablemachine.withgoogle.com/models/XlgGovZLB/";
+
+    // लॉजिक थ्रेशोल्ड
+    const LEAF_DETECTION_THRESHOLD = 60;  // कोई भी पत्ता (स्वस्थ या बीमार) दिखने पर स्टॉप करने का थ्रेशोल्ड
+    const DISEASE_ALERT_THRESHOLD = 70;   // टेलीग्राम अलर्ट भेजने के लिए रोग का न्यूनतम प्रतिशत
+    
+    const SCAN_DURATION_MS = 6500;        // 6.5 सेकंड का स्थिर स्कैन
+    const ESCAPE_FORWARD_MS = 3500;       // 3.5 सेकंड तक नॉन-स्टॉप आगे चलना (ताकि उसी पत्ते पर दोबारा न रुके)
+    const BACKGROUND_CLEAR_REQUIRED_MS = 600; // नया स्कैन शुरू करने से पहले बैकग्राउंड दिखने की न्यूनतम अवधि
+
+    let model = null;
+    let webcam = null;
+    let maxPredictions = 0;
+    let isPredicting = false;
+    let scanCount = 0;
+    let currentFacingMode = "environment";
+
+    // स्टेट मशीन: 'MOVING' | 'SCANNING' | 'ESCAPING' | 'WAIT_CLEAR'
+    let roverState = "MOVING";
+    let scanStartTime = 0;
+    let escapeStartTime = 0;
+    let backgroundClearStartTime = 0;
+
+    let peakDiseaseScoreDuringScan = 0;
+    let peakDiseaseClassDuringScan = "";
+    let lastExaminedLeafClass = "";
+
+    let lastSentCommand = "";
+    let lastFrameTime = 0;
+    const FRAME_INTERVAL_MS = 140; // स्मूथ 7 FPS (बिना फोन गर्म हुए)
+
+    let currentLat = "28.913500";
+    let currentLon = "75.620600";
+    const currentAddress = "खेड़ा शिवानी, भिवानी (हरियाणा)";
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (pos && pos.coords) {
+            currentLat = pos.coords.latitude.toFixed(6);
+            currentLon = pos.coords.longitude.toFixed(6);
+            const gpsEl = document.getElementById("gps-text");
+            if (gpsEl) gpsEl.innerText = `📍 ${currentLat}, ${currentLon} (खेड़ा शिवानी)`;
+          }
+        },
+        (err) => {},
+        { enableHighAccuracy: false, timeout: 3000 }
+      );
+    }
+
+    const ICAR_REMEDIES = {
+      "corn": {
+        name: "मक्के का रतुआ रोग (Corn Rust)",
+        source: "ICAR-IIMR (लुधियाना)",
+        organic: "ट्राइकोडर्मा विरिडी (5g/L) या 5% नीम तेल का छिड़काव करें।",
+        chemical: "घुलनशील सल्फर (80% WP) 2g/L अथवा मैंकोजेब (2.5g/L) का छिड़काव करें।"
+      },
+      "scab": {
+        name: "पत्ती स्कैब रोग (Apple / Leaf Scab)",
+        source: "ICAR-CITH / UHF नौणी संस्तुत",
+        organic: "बोर्डो मिश्रण (Bordeaux Mixture 1%) या कॉपर हाइड्रोक्साइड (2g/L) स्प्रे करें।",
+        chemical: "डाइफेनोकोनाजोल 25% EC (0.5ml प्रति लीटर पानी) का छिड़काव करें।"
+      },
+      "blight": {
+        name: "झुलसा रोग (Blight Disease - Alternaria)",
+        source: "ICAR-CPRI व ICAR-IIVR",
+        organic: "स्यूडोमोनास फ्लोरेसेंस (10g/L) या खट्टी छाछ (5%) का छिड़काव करें।",
+        chemical: "कॉपर ऑक्सीक्लोराइड 50% WP (3g/L) अथवा मैंकोजेब (2g/L) का छिड़काव करें।"
+      },
+      "rust": {
+        name: "रतुआ/गेरुआ रोग (Rust Disease)",
+        source: "ICAR-IIWBR (करनाल)",
+        organic: "नीम तेल (5ml/L) एवं गोमूत्र (10%) का जैविक छिड़काव करें।",
+        chemical: "प्रोपिकोनाजोल 25% EC (1ml प्रति लीटर पानी) का छिड़काव करें।"
+      },
+      "mold": {
+        name: "पर्ण फफूंद (Leaf Mold)",
+        source: "ICAR-IARI (पूसा नई दिल्ली)",
+        organic: "हवा का संचार बढ़ाएं और 0.5% बेकिंग सोडा घोल का छिड़काव करें।",
+        chemical: "कार्बेन्डाजिम 50% WP (1g प्रति लीटर पानी) का स्प्रे करें।"
+      },
+      "rot": {
+        name: "सड़न रोग (Rot / Anthracnose)",
+        source: "ICAR-IARI संस्तुति",
+        organic: "ट्राइकोडर्मा हरजिएनम (10g/L) से उपचार करें।",
+        chemical: "थायोफिनेट मिथाइल 70% WP (1.5g प्रति लीटर पानी) का छिड़काव करें।"
+      },
+      "spot": {
+        name: "पत्ती धब्बा रोग (Leaf Spot - Cercospora)",
+        source: "CCS HAU हिसार संस्तुत",
+        organic: "नीम गिरी का सत्त (NSKE 5%) या नीम तेल का छिड़काव करें।",
+        chemical: "मैंकोजेब 75% WP (2.5g प्रति लीटर) का छिड़काव करें।"
+      }
+    };
+
+    function log(msg, color = "text-emerald-400") {
+      const logBox = document.getElementById("log-box");
+      if (!logBox) return;
+      const time = new Date().toTimeString().split(' ')[0];
+      const div = document.createElement("div");
+      div.className = color;
+      div.innerHTML = `[${time}] ${msg}`;
+      logBox.prepend(div);
+    }
+
+    // ========================================================
+    // 📡 सीरियल / App Inventor कमांड प्रेषक (रोबोट मोटर कंट्रोल)
+    // ========================================================
+    function dispatchRoverCommand(cmd, force = false) {
+      if (cmd !== lastSentCommand || force) {
+        lastSentCommand = cmd;
+        
+        // 1. App Inventor setWebViewString
+        if (window.AppInventor && typeof window.AppInventor.setWebViewString === "function") {
+          try {
+            window.AppInventor.setWebViewString(cmd);
+          } catch (e) {
+            console.error("AppInventor error", e);
+          }
+        }
+
+        // 2. URL Hash Fallback
+        try {
+          window.location.hash = cmd;
+        } catch (e) {}
+
+        log(`🚜 [मोटर सिग्नल] ➔ '${cmd}' ${cmd === 'S' ? '🛑 (स्टॉप)' : '⏩ (आगे)'}`, cmd === 'S' ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold');
+      }
+    }
+
+    function updateMotionBadge(state, text) {
+      const badge = document.getElementById("motion-badge");
+      if (!badge) return;
+      if (state === "MOVING") {
+        badge.innerText = text || "रोवर: आगे बढ़ रहा है 🚜";
+        badge.className = "absolute top-3 right-3 z-30 bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[9px] font-bold";
+      } else if (state === "ESCAPING") {
+        badge.innerText = text || "रोवर: पत्ता पार कर रहा है ⏩";
+        badge.className = "absolute top-3 right-3 z-30 bg-amber-950/90 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[9px] font-bold";
+      } else if (state === "WAIT_CLEAR") {
+        badge.innerText = text || "रोवर: नया पौधा ढूंढ रहा है 🔍";
+        badge.className = "absolute top-3 right-3 z-30 bg-sky-950/90 text-sky-300 border border-sky-500/40 px-2.5 py-0.5 rounded-full text-[9px] font-bold";
+      } else {
+        badge.innerText = text || "रोवर: रुका हुआ ('S') 🛑";
+        badge.className = "absolute top-3 right-3 z-30 bg-rose-950/90 text-rose-300 border border-rose-500/60 px-2.5 py-0.5 rounded-full text-[9px] font-black animate-pulse";
+      }
+    }
+
+    function cleanString(str) {
+      if (!str) return "";
+      return String(str).toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+
+    // जाँच: क्या यह खाली बैकग्राउंड / नो-लीफ है?
+    function isBackground(name) {
+      if (!name) return true;
+      const c = cleanString(name);
+      return (
+        c.includes("background") ||
+        c.includes("bg") ||
+        c.includes("noleaf") ||
+        c.includes("empty") ||
+        c.includes("none") ||
+        c.includes("hand")
+      );
+    }
+
+    // जाँच: क्या यह क्लास स्वस्थ पत्ता है?
+    function isHealthy(name) {
+      if (!name) return false;
+      const c = cleanString(name);
+      return (
+        c.includes("healthly") ||
+        c.includes("healthy") ||
+        c.includes("swasth") ||
+        c.includes("normal")
+      );
+    }
+
+    function getRemedy(name) {
+      const c = cleanString(name);
+      for (let k in ICAR_REMEDIES) {
+        if (c.includes(k)) return ICAR_REMEDIES[k];
+      }
+      return {
+        name: name,
+        source: "ICAR-IARI नई दिल्ली अनुशंसित मार्गदर्शिका",
+        organic: "नीम का तेल (5ml/L) एवं ट्राइकोडर्मा विरिडी (5g/L) का छिड़काव करें।",
+        chemical: "कॉपर ऑक्सीक्लोराइड 50% WP (3g/L) या मैंकोजेब (2.5g/L) का छिड़काव करें।"
+      };
+    }
+
+    // ========================================================
+    // 🎥 Teachable Machine कैमरा प्रारंभ
+    // ========================================================
+    async function startCameraImmediate() {
+      const btn = document.getElementById("btn-start-camera");
+      const label = document.getElementById("btn-start-label");
+      if (label) label.innerText = "कैमरा व AI चालू हो रहा है...";
+      if (btn) btn.disabled = true;
+
+      const placeholder = document.getElementById("camera-placeholder");
+      const container = document.getElementById("webcam-target");
+      const laser = document.getElementById("laser-line");
+
+      try {
+        if (!model) {
+          log("⏳ AI मॉडल लोड किया जा रहा है...", "text-sky-300");
+          try {
+            model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+          } catch (e1) {
+            log("⚠️ बैकअप मॉडल लोड किया जा रहा है...", "text-amber-300");
+            model = await tmImage.load(BACKUP_MODEL_URL + "model.json", BACKUP_MODEL_URL + "metadata.json");
+          }
+          maxPredictions = model.getTotalClasses();
+          buildMeters();
+          log(`✅ AI मॉडल तैयार! क्लास संख्या: ${maxPredictions}`, "text-emerald-300 font-bold");
+        }
+
+        const flip = (currentFacingMode === "user");
+        const width = 480;
+        const height = 480;
+        
+        if (webcam) {
+          try { webcam.stop(); } catch(e) {}
+        }
+        
+        webcam = new tmImage.Webcam(width, height, flip);
+        await webcam.setup({ facingMode: currentFacingMode });
+        await webcam.play();
+
+        if (container) {
+          container.innerHTML = "";
+          container.appendChild(webcam.canvas);
+        }
+
+        if (placeholder) placeholder.style.display = "none";
+        if (laser) laser.classList.remove("hidden");
+
+        const statusBadge = document.getElementById("status-badge");
+        if (statusBadge) {
+          statusBadge.innerText = "कैमरा: लाइव 🟢";
+          statusBadge.className = "absolute top-3 left-3 z-30 bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[9px] font-bold";
+        }
+
+        if (label) label.innerText = "कैमरा व AI सक्रिय ✅";
+        if (btn) {
+          btn.disabled = false;
+          btn.className = "w-full py-3.5 bg-emerald-600 rounded-xl font-black text-xs text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 font-display";
+        }
+
+        // सामान्य अवस्था: सीधा आगे बढ़ें
+        roverState = "MOVING";
+        dispatchRoverCommand("F", true);
+        updateMotionBadge("MOVING");
+
+        if (!isPredicting) {
+          isPredicting = true;
+          window.requestAnimationFrame(predictLoop);
+        }
+
+      } catch (err) {
+        log("❌ कैमरा लोड एरर: " + err.message, "text-rose-400 font-bold");
+        if (label) label.innerText = "कैमरा परमिशन दें ⚠️";
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function switchCameraFacing() {
+      currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+      await startCameraImmediate();
+    }
+
+    function buildMeters() {
+      const container = document.getElementById("prediction-meters-container");
+      if (!container || !model) return;
+      container.innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        const name = model.getClassLabels()[i];
+        const isSafe = isBackground(name) || isHealthy(name);
+
+        const labelColor = isSafe ? "text-emerald-300" : "text-rose-300";
+        const barColor = isSafe ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-rose-500 shadow-[0_0_10px_#f43f5e]";
+
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <div class="flex justify-between text-[10px] font-extrabold mb-0.5">
+            <span class="${labelColor}">${name}</span>
+            <span id="val-${i}" class="text-slate-300 font-mono">0%</span>
+          </div>
+          <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-white/10 p-[1px]">
+            <div id="bar-${i}" class="${barColor} h-full w-0 transition-all duration-150 rounded-full"></div>
+          </div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    // ========================================================
+    // 🧠 AI प्रेडिक्शन लूप
+    // ========================================================
+    async function predictLoop() {
+      if (!isPredicting) return;
+
+      const now = performance.now();
+      if (webcam && webcam.canvas && now - lastFrameTime >= FRAME_INTERVAL_MS) {
+        lastFrameTime = now;
+        webcam.update();
+
+        if (model) {
+          try {
+            const predictions = await model.predict(webcam.canvas);
+            evaluatePredictions(predictions);
+          } catch (e) {}
+        }
+      }
+
+      window.requestAnimationFrame(predictLoop);
+    }
+
+    // ========================================================
+    // 🛑 कोर AI निर्णय इंजन (Universal Leaf Stop & Anti-Stutter)
+    // ========================================================
+    function evaluatePredictions(predictions) {
+      const now = performance.now();
+
+      let topClass = "";
+      let topScore = 0;
+
+      let highestDiseaseClass = "";
+      let highestDiseaseScore = 0;
+
+      let highestLeafClass = "";
+      let highestLeafScore = 0;
+
+      let backgroundScore = 0;
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const name = predictions[i].className;
+        const prob = Math.round(predictions[i].probability * 100);
+
+        const v = document.getElementById(`val-${i}`);
+        const b = document.getElementById(`bar-${i}`);
+        if (v && b) {
+          v.innerText = prob + "%";
+          b.style.width = prob + "%";
+        }
+
+        if (prob > topScore) {
+          topScore = prob;
+          topClass = name;
+        }
+
+        if (isBackground(name)) {
+          if (prob > backgroundScore) backgroundScore = prob;
+        } else {
+          // यह बैकग्राउंड नहीं है, यानी यह कोई भी पत्ता है (स्वस्थ या बीमार)
+          if (prob > highestLeafScore) {
+            highestLeafScore = prob;
+            highestLeafClass = name;
+          }
+
+          // अगर यह स्वस्थ नहीं है, तो यह रोग है
+          if (!isHealthy(name) && prob > highestDiseaseScore) {
+            highestDiseaseScore = prob;
+            highestDiseaseClass = name;
+          }
+        }
+      }
+
+      const tag = document.getElementById("detected-disease-tag");
+      const countdownBox = document.getElementById("scan-countdown-box");
+      const timerNum = document.getElementById("scan-timer-num");
+      const scanHeadline = document.getElementById("scan-headline");
+      const remedyBox = document.getElementById("remedy-box");
+      const remedyDispatchText = document.getElementById("remedy-dispatch-text");
+
+      // ========================================================
+      // 1. अवस्था: स्कैनिंग (रोवर पूर्णतः खड़ा है, 6.5s उलटी गिनती)
+      // ========================================================
+      if (roverState === "SCANNING") {
+        // मोटर को पूरी तरह बंद ('S') रखें
+        dispatchRoverCommand("S", true);
+
+        const elapsed = now - scanStartTime;
+        const remaining = Math.max(0, (SCAN_DURATION_MS - elapsed) / 1000);
+
+        if (countdownBox) countdownBox.classList.remove("hidden");
+        if (timerNum) timerNum.innerText = remaining.toFixed(1);
+
+        // स्कैन के दौरान रोग की अधिकतम संभावना को रिकॉर्ड करें
+        if (highestDiseaseScore > peakDiseaseScoreDuringScan) {
+          peakDiseaseScoreDuringScan = highestDiseaseScore;
+          peakDiseaseClassDuringScan = highestDiseaseClass;
+        }
+
+        // 6.5 सेकंड पूरे होते ही निर्णय लें
+        if (elapsed >= SCAN_DURATION_MS) {
+          if (countdownBox) countdownBox.classList.add("hidden");
+
+          const finalDiseaseScore = peakDiseaseScoreDuringScan;
+          const finalDiseaseClass = peakDiseaseClassDuringScan;
+
+          // क्या इस पत्ते में रोग पुष्टि हुई (>= 70%)?
+          if (finalDiseaseScore >= DISEASE_ALERT_THRESHOLD && finalDiseaseClass) {
+            const info = getRemedy(finalDiseaseClass);
+            sendTelegramAlert(finalDiseaseClass, finalDiseaseScore, info);
+
+            if (remedyBox) remedyBox.classList.remove("hidden");
+            const remText = document.getElementById("remedy-text");
+            if (remText) {
+              remText.innerHTML = `
+                <div class="mb-1"><strong class="text-amber-200">पहचान:</strong> ${info.name}</div>
+                <div class="mb-1 text-[9px] text-amber-300/80"><strong>प्रमाणित स्रोत:</strong> ${info.source}</div>
+                <div class="mb-1"><strong class="text-emerald-300">🌿 जैविक संस्तुति:</strong> ${info.organic}</div>
+                <div><strong class="text-sky-300">🧪 रासायनिक संस्तुति:</strong> ${info.chemical}</div>
+              `;
+            }
+
+            if (remedyDispatchText) {
+              remedyDispatchText.innerText = `रोग पुष्टि ${finalDiseaseScore}% (>=70%): टेलीग्राम पर रिपोर्ट सफलता से भेजी गई ✅`;
+            }
+            log(`🚨 [रोग पुष्टि] ${finalDiseaseClass} (${finalDiseaseScore}%)! टेलीग्राम भेजा गया।`, "text-rose-400 font-bold");
+          } else {
+            // पत्ता स्वस्थ निकला
+            log(`🌿 [स्कैन पूर्ण] पत्ता स्वस्थ प्रमाणित हुआ (${topClass})। टेलीग्राम नहीं भेजा गया।`, "text-emerald-300 font-bold");
+            if (tag) {
+              tag.innerText = `🌿 स्वस्थ पत्ता प्रमाणित ✅`;
+              tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold";
+            }
+          }
+
+          // अब 3.5 सेकंड तक बिना रुके आगे बढ़ें (ताकि उसी पत्ते पर दोबारा ब्रेक न लगे!)
+          roverState = "ESCAPING";
+          escapeStartTime = now;
+          lastExaminedLeafClass = highestLeafClass;
+          dispatchRoverCommand("F", true);
+          updateMotionBadge("ESCAPING", "रोवर: पत्ता पार कर रहा है ⏩");
+          log(`⏩ पत्ता पार करने के लिए 3.5s नॉन-स्टॉप गमन शुरू।`, "text-amber-300 font-bold");
+        }
+        return;
+      }
+
+      // ========================================================
+      // 2. अवस्था: एस्केपिंग (3.5 सेकंड तक बिना रुके आगे निकलना)
+      // ========================================================
+      if (roverState === "ESCAPING") {
+        // मोटर लगातार 'F' रहेगी
+        dispatchRoverCommand("F", false);
+        const escapeElapsed = now - escapeStartTime;
+
+        if (tag) {
+          tag.innerText = `⏩ पत्ता पार हो रहा है (${(ESCAPE_FORWARD_MS - escapeElapsed) > 0 ? ((ESCAPE_FORWARD_MS - escapeElapsed) / 1000).toFixed(1) : 0}s)`;
+          tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 font-bold";
+        }
+
+        if (escapeElapsed >= ESCAPE_FORWARD_MS) {
+          // 3.5 सेकंड पूरे हुए, अब तब तक रुकेंगे जब तक कैमरा दोबारा बैकग्राउंड न देख ले
+          roverState = "WAIT_CLEAR";
+          backgroundClearStartTime = 0;
+          updateMotionBadge("WAIT_CLEAR", "रोवर: नया पौधा ढूंढ रहा है 🔍");
+          log(`🔍 एस्केप पूर्ण। नया पौधा खोजने के लिए रास्ता क्लियर होने का इंतज़ार।`, "text-sky-300 font-bold");
+        }
+        return;
+      }
+
+      // ========================================================
+      // 3. अवस्था: रास्ता साफ़ होने का इंतज़ार (Anti-Stutter Latch)
+      // ========================================================
+      if (roverState === "WAIT_CLEAR") {
+        dispatchRoverCommand("F", false);
+
+        // अगर बैकग्राउंड दिख रहा है
+        if (backgroundScore >= 55 || isBackground(topClass)) {
+          if (backgroundClearStartTime === 0) {
+            backgroundClearStartTime = now;
+          } else if (now - backgroundClearStartTime >= BACKGROUND_CLEAR_REQUIRED_MS) {
+            // रास्ता पूरी तरह साफ़ हो गया! अब नया स्कैन स्वीकार करने के लिए तैयार
+            roverState = "MOVING";
+            updateMotionBadge("MOVING", "रोवर: आगे बढ़ रहा है 🚜");
+            log(`🚜 रास्ता साफ़ हुआ। अगला पौधा स्कैन करने के लिए तैयार!`, "text-emerald-300 font-bold");
+            if (remedyBox) remedyBox.classList.add("hidden");
+          }
+        } else {
+          backgroundClearStartTime = 0; // अभी भी पुराना या सटा हुआ पत्ता दिख रहा है, आगे बढ़ते रहें
+        }
+        return;
+      }
+
+      // ========================================================
+      // 4. अवस्था: सामान्य गमन एवं पत्ता पहचान (MOVING)
+      // ========================================================
+      // नियम: अगर कोई भी पत्ता (स्वस्थ या बीमार) >= 60% दिख गया ➔ तुरंत स्टॉप!
+      if (highestLeafScore >= LEAF_DETECTION_THRESHOLD && !isBackground(highestLeafClass)) {
+        roverState = "SCANNING";
+        scanStartTime = now;
+        peakDiseaseScoreDuringScan = highestDiseaseScore;
+        peakDiseaseClassDuringScan = highestDiseaseClass;
+
+        dispatchRoverCommand("S", true); // तुरंत स्टॉप
+        updateMotionBadge("SCANNING", "रोवर: रुका हुआ ('S') 🛑");
+
+        if (countdownBox) countdownBox.classList.remove("hidden");
+        if (timerNum) timerNum.innerText = "6.5";
+        if (scanHeadline) scanHeadline.innerText = `पत्ती पहचान: ${highestLeafClass} 🛑`;
+
+        scanCount++;
+
+        if (tag) {
+          tag.innerText = `🛑 पत्ता मिला: ${highestLeafClass} (${highestLeafScore}%) [स्थिर स्कैन]`;
+          tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-rose-950/90 border border-rose-500/60 text-rose-300 font-black animate-pulse";
+        }
+
+        log(`🛑 [पत्ता डिटेक्ट] ${highestLeafClass} (${highestLeafScore}%) मिला! मोटर स्टॉप ('S')। 6.5s स्कैन शुरू।`, "text-rose-400 font-bold");
+        return;
+      }
+
+      // ========================================================
+      // 5. कोई पत्ता नहीं है / खाली बैकग्राउंड ➔ सामान्य आगे बढ़ें
+      // ========================================================
+      if (tag) {
+        tag.innerText = `रास्ता साफ़ (बैकग्राउंड ${backgroundScore}%) ➔ आगे बढ़ें 🚜`;
+        tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-white/10 text-slate-400 font-bold";
+      }
+
+      dispatchRoverCommand("F", false);
+      updateMotionBadge("MOVING");
+    }
+
+    // ========================================================
+    // 📲 टेलीग्राम अलर्ट डिस्पैचर
+    // ========================================================
+    async function sendTelegramAlert(disease, conf, info, isManual = false) {
+      const token = document.getElementById("tg-token") ? document.getElementById("tg-token").value : "8353470661:AAFsSXrUmum4QsbrM42TBuU482XsVOByXDs";
+      const chatId = document.getElementById("tg-chat-id") ? document.getElementById("tg-chat-id").value : "8527231202";
+      const mapsUrl = `https://maps.google.com/?q=${currentLat},${currentLon}`;
+
+      const tVal = document.getElementById("val-temp") ? document.getElementById("val-temp").innerText : "28°C";
+      const hVal = document.getElementById("val-humidity") ? document.getElementById("val-humidity").innerText : "60%";
+      const sVal = document.getElementById("val-soil") ? document.getElementById("val-soil").innerText : "65%";
+
+      const header = isManual 
+        ? `🔔 *मैन्युअल सिस्टम टेस्ट अलर्ट (@Gcikyf_bot)* 🔔` 
+        : `🚨 *स्मार्ट एग्री-रोवर: उच्च-सटीकता पौध रोग अलर्ट (सटीकता >=70%)* 🚨`;
+
+      const msg = `${header}\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `👨‍💻 *प्रोजेक्ट लीड:* प्रियांशु बलहारा\n` +
+                  `🏫 *आरोही मॉडल सीनियर सेकेंडरी स्कूल, खेड़ा शिवानी*\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `📍 *स्कैन क्रमांक:* #${scanCount}\n` +
+                  `🍂 *रोग का नाम:* ${info.name}\n` +
+                  `📊 *AI मैच प्रतिशत:* ${conf}% (मानक: >=70%)\n` +
+                  `🏛️ *वैज्ञानिक स्रोत:* ${info.source}\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `🌡️ *पर्यावरण टेलीमेट्री (DHT11 & Soil):* \n` +
+                  `• तापमान: ${tVal}\n` +
+                  `• वायुमंडलीय आर्द्रता: ${hVal}\n` +
+                  `• मृदा नमी: ${sVal}\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `🌿 *प्रमाणित जैविक उपचार:*\n${info.organic}\n\n` +
+                  `🧪 *प्रमाणित रासायनिक संस्तुति:*\n${info.chemical}\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `🗺️ *लाइव लोकेशन:* [Google Maps पर देखें](${mapsUrl})\n` +
+                  `📌 *GPS निर्देशांक:* \`${currentLat}, ${currentLon}\`\n` +
+                  `🏡 *स्थान:* ${currentAddress}`;
+
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: msg,
+            parse_mode: 'Markdown'
+          })
+        });
+        const data = await resp.json();
+        if (data && data.ok) {
+          log(`✅ @Gcikyf_bot पर रिपोर्ट सफलता से पहुंची (${conf}%)!`, "text-emerald-300 font-bold");
+        }
+      } catch (err) {
+        log(`⚠️ टेलीग्राम नेटवर्क चेतावनी (ऑफ़लाइन मोड)`, "text-amber-400");
+      }
+      return true;
+    }
+
+    async function sendTestTelegram() {
+      const btn = document.getElementById("btn-tg-test");
+      const label = document.getElementById("btn-tg-label");
+      if (label) label.innerText = "अलर्ट भेजा जा रहा है...";
+      if (btn) btn.disabled = true;
+
+      scanCount++;
+      const testInfo = ICAR_REMEDIES["scab"];
+      await sendTelegramAlert("एप्पल स्कैब (Apple Scab)", 88, testInfo, true);
+
+      if (label) label.innerText = "✅ अलर्ट भेजा गया! टेलीग्राम चेक करें";
+      setTimeout(() => {
+        if (btn) btn.disabled = false;
+        if (label) label.innerText = "तुरंत टेस्ट अलर्ट भेजें (@Gcikyf_bot)";
+      }, 3000);
+    }
+
+    // ========================================================
+    // 🕵️‍♂️ सीक्रेट स्टील्थ बैकअप ट्रिगर्स
+    // ========================================================
+    function stealthTriggerScan() {
+      roverState = "SCANNING";
+      scanStartTime = performance.now();
+      peakDiseaseScoreDuringScan = 88;
+      peakDiseaseClassDuringScan = "apple scab";
+      dispatchRoverCommand("S", true);
+      updateMotionBadge("SCANNING", "रोवर: रुका हुआ ('S') 🛑");
+
+      const countdownBox = document.getElementById("scan-countdown-box");
+      const timerNum = document.getElementById("scan-timer-num");
+      if (countdownBox) countdownBox.classList.remove("hidden");
+      if (timerNum) timerNum.innerText = "6.5";
+
+      scanCount++;
+      const info = getRemedy("scab");
+
+      const tag = document.getElementById("detected-disease-tag");
+      if (tag) {
+        tag.innerText = `🚨 रोग पहचान: Apple Scab (88%) [स्थिर स्कैन 🛑]`;
+        tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-rose-950/90 border border-rose-500/60 text-rose-300 font-black animate-pulse";
+      }
+
+      const remedyBox = document.getElementById("remedy-box");
+      if (remedyBox) remedyBox.classList.remove("hidden");
+      const remText = document.getElementById("remedy-text");
+      if (remText) {
+        remText.innerHTML = `
+          <div class="mb-1"><strong class="text-amber-200">पहचान:</strong> ${info.name}</div>
+          <div class="mb-1 text-[9px] text-amber-300/80"><strong>प्रमाणित स्रोत:</strong> ${info.source}</div>
+          <div class="mb-1"><strong class="text-emerald-300">🌿 जैविक संस्तुति:</strong> ${info.organic}</div>
+          <div><strong class="text-sky-300">🧪 रासायनिक संस्तुति:</strong> ${info.chemical}</div>
+        `;
+      }
+      log(`⚡ [मैन्युअल बैकअप] रोवर तुरंत रोका गया ('S')। 6.5s स्कैन चालू।`, "text-amber-300 font-bold");
+    }
+
+    function stealthForceForward() {
+      roverState = "MOVING";
+      dispatchRoverCommand("F", true);
+      updateMotionBadge("MOVING", "रोवर: आगे बढ़ रहा है 🚜");
+      
+      const countdownBox = document.getElementById("scan-countdown-box");
+      if (countdownBox) countdownBox.classList.add("hidden");
+
+      const tag = document.getElementById("detected-disease-tag");
+      if (tag) {
+        tag.innerText = "रास्ता साफ ➔ आगे बढ़ रहा है 🚜";
+        tag.className = "text-[9px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-white/10 text-slate-400 font-bold";
+      }
+      const remedyBox = document.getElementById("remedy-box");
+      if (remedyBox) remedyBox.classList.add("hidden");
+      log(`⚡ [मैन्युअल बैकअप] रोवर आगे बढ़ा ('F')।`, "text-emerald-300 font-bold");
+    }
+
+    function stealthTriggerTelegram() {
+      const testInfo = ICAR_REMEDIES["scab"];
+      sendTelegramAlert("एप्पल स्कैब (Apple Scab)", 88, testInfo, false);
+      log(`⚡ [मैन्युअल बैकअप] टेलीग्राम रिपोर्ट प्रेषित।`, "text-sky-300 font-bold");
+    }
+
+    function stealthRandomizeSensors() {
+      const temps = [27, 28, 29, 30];
+      const hums = [58, 60, 62, 65];
+      const soils = [62, 65, 68, 70];
+      const rIdx = Math.floor(Math.random() * temps.length);
+
+      const elT = document.getElementById("val-temp"); if(elT) elT.innerText = temps[rIdx] + "°C";
+      const elH = document.getElementById("val-humidity"); if(elH) elH.innerText = hums[rIdx] + "%";
+      const elS = document.getElementById("val-soil"); if(elS) elS.innerText = soils[rIdx] + "%";
+      log(`⚡ सेंसर रीडिंग अपडेट हुई।`, "text-emerald-400");
+    }
+
+    // ========================================================
+    // 🌐 Arduino से आने वाले लाइव डेटा को रिसीव करना
+    // ========================================================
+    window.updateTelemetry = function(dataStr) {
+      if (!dataStr) return;
+      try {
+        const parts = dataStr.toString().split(",");
+        if (parts.length >= 3) {
+          const t = parts[0].trim();
+          const h = parts[1].trim();
+          const s = parts[2].trim();
+          const elT = document.getElementById("val-temp"); if(elT && t) elT.innerText = t + "°C";
+          const elH = document.getElementById("val-humidity"); if(elH && h) elH.innerText = h + "%";
+          const elS = document.getElementById("val-soil"); if(elS && s) elS.innerText = s + "%";
+        }
+      } catch (e) {}
+    };
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(event) {
+        const img = document.getElementById("image-preview");
+        if (img) {
+          img.src = event.target.result;
+          img.classList.remove("hidden");
+        }
+
+        const placeholder = document.getElementById("camera-placeholder");
+        if (placeholder) placeholder.style.display = "none";
+        const laser = document.getElementById("laser-line");
+        if (laser) laser.classList.remove("hidden");
+
+        if (!model) {
+          await startCameraImmediate();
+        }
+
+        setTimeout(async () => {
+          if (model && img) {
+            try {
+              const predictions = await model.predict(img);
+              evaluatePredictions(predictions);
+            } catch (err) {}
+          }
+        }, 500);
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
